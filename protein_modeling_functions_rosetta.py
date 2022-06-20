@@ -66,10 +66,10 @@ def add_glycan(input_pdb, residue_index, glycan_chain):
 
 
 
-def relax_structure(input_pdb, contrain_to_input=False, standard_repeats=5, cartesian=True):
+def relax_structure(input_pdb_to_relax, contrain_to_input=False, standard_repeats=5, cartesian=True):
 
     print("prepare starting structure with FastRelax()")
-    testPose = pose_from_pdb(input_pdb)
+    poseRelaxed = pose_from_pdb(input_pdb_to_relax)
     relax = FastRelax(standard_repeats=5)
     
     if cartesian == True:
@@ -84,16 +84,18 @@ def relax_structure(input_pdb, contrain_to_input=False, standard_repeats=5, cart
     relax.constrain_relax_to_start_coords(contrain_to_input)
 
     print(relax)
-    relax.apply(testPose)
-    testPose.dump_pdb(input_pdb.replace(".pdb", "") + ".relax.pdb")
+    relax.apply(poseRelaxed)
+    
+    return poseRelaxed
+
     
 
 
 
 
-def build_disulfide(input_pdb, ds_res1, ds_res2, cycles=1000, distance_cutoff = 5):
+def build_disulfide(input_pose_for_disulfide, ds_res1, ds_res2, cycles=1000, distance_cutoff = 5):
 
-    input_pose = pose_from_pdb(input_pdb)
+    input_pose_for_disulfide = pose_from_pdb(input_pose_for_disulfide)
     
    
     def resi_within(pose, angstrom, the_sun):
@@ -135,7 +137,7 @@ def build_disulfide(input_pdb, ds_res1, ds_res2, cycles=1000, distance_cutoff = 
     scorefxn = get_fa_scorefxn()
     #scorefxn.set_weight(ScoreType.dslf_fa13, 1000.0) # to encourage disulfide formation, default values is 1.250
     print(scorefxn)
-    DisulfidizeMover().make_disulfide(input_pose, ds_res1, ds_res2, True, scorefxn)
+    DisulfidizeMover().make_disulfide(input_pose_for_disulfide, ds_res1, ds_res2, True, scorefxn)
 
 
     # minimize distance between SG atoms using backrub and minimization movers
@@ -146,7 +148,7 @@ def build_disulfide(input_pdb, ds_res1, ds_res2, cycles=1000, distance_cutoff = 
     min_mover.score_function(scorefxn)
 
 
-    reference_pose = input_pose.clone()
+    reference_pose = input_pose_for_disulfide.clone()
     working_pose = reference_pose.clone()
 
     print("the STARTING reference difference is " + str(delta_disulfide_SG_distance(disulfide_SG_distance(reference_pose, ds_res1, ds_res2), 2.04)))
@@ -293,6 +295,9 @@ def point_mutation(pose_to_mutate, position_to_mutate, mutant_aa, pack_radius, p
 
 
 def simple_fold(input_pose):
+    
+    # This is a work in progress!
+
     
     scorefxn = get_fa_scorefxn() 
     
