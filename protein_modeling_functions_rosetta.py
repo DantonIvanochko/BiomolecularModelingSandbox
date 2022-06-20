@@ -66,11 +66,11 @@ def add_glycan(input_pdb, residue_index, glycan_chain):
 
 
 
-def relax_structure(input_pdb_to_relax, contrain_to_input=False, standard_repeats=5, cartesian=True):
+def relax_structure(input_pose_to_relax, contrain_to_input=False, standard_repeats=5, cartesian=True):
 
     print("prepare starting structure with FastRelax()")
-    poseRelaxed = pose_from_pdb(input_pdb_to_relax)
-    relax = FastRelax(standard_repeats=5)
+    
+    relax = FastRelax(standard_repeats=standard_repeats)
     
     if cartesian == True:
         scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
@@ -84,9 +84,9 @@ def relax_structure(input_pdb_to_relax, contrain_to_input=False, standard_repeat
     relax.constrain_relax_to_start_coords(contrain_to_input)
 
     print(relax)
-    relax.apply(poseRelaxed)
+    relax.apply(input_pose_to_relax)
     
-    return poseRelaxed
+    return input_pose_to_relax
 
     
 
