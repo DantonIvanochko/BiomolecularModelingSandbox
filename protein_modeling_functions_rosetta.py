@@ -33,7 +33,7 @@ from pyrosetta.rosetta.core.pack.task import TaskFactory
 
 def clean_structure(input_pdb):
     print("cleaning structure")
-    cleanATOM(input_pdb, input_pdb.replace("../models/", "").replace(".pdb", "") + ".clean.pdb")
+    cleanATOM(input_pdb, input_pdb.replace("..", "").replace(".pdb", "") + ".clean.pdb")
 
 
 
