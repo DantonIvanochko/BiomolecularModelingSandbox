@@ -248,46 +248,50 @@ def build_disulfide(input_pose_for_disulfide, ds_res1, ds_res2, cycles=1000, dis
 
 
 
-def point_mutation(pose_to_mutate, position_to_mutate, mutant_aa, pack_radius, pack_scorefxn, relax_cycles=1):
+def point_mutation(pose_to_mutate, pdb_chain_to_mutate, pdb_position_to_mutate, mutant_aa, repack_radius=10, scorefxn=pyrosetta.create_score_function("ref2015_cart.wts")):
+    # Mutate the residue at the given position
+    pose_position_to_mutate = pose_to_mutate.pdb_info().pdb2pose(pdb_chain_to_mutate, pdb_position_to_mutate)
+    pyrosetta.toolbox.mutants.mutate_residue(pose_to_mutate, pose_position_to_mutate, mutant_aa)
 
-    pyrosetta.toolbox.mutants.mutate_residue(pose_to_mutate, position_to_mutate, mutant_aa, pack_radius=5, pack_scorefxn=get_fa_scorefxn())
+    # Create residue selector for the mutated residue and its neighbors within repack_radius
+    center_residue_selector = pyrosetta.rosetta.core.select.residue_selector.ResidueIndexSelector(str(pose_position_to_mutate))
+    nbr_selector = pyrosetta.rosetta.core.select.residue_selector.NeighborhoodResidueSelector(center_residue_selector, repack_radius, True)
     
-    focus_pos = pyrosetta.rosetta.core.select.residue_selector.ResidueIndexSelector()
-    focus_pos.set_index(position_to_mutate)
-    nbr = pyrosetta.rosetta.core.select.residue_selector.NeighborhoodResidueSelector()
-    nbr.set_distance(pack_radius)
-    nbr.set_focus_selector(focus_pos)
-    nbr.set_include_focus_in_subset(True)
-    pose_to_mutate.update_residue_neighbors()
-    nbr.apply(pose_to_mutate)
+
+    # Create a packer task and restrict it to repacking only the mutated residue and its neighbors
+    task_factory = pyrosetta.rosetta.core.pack.task.TaskFactory()
+    task_factory.push_back(pyrosetta.rosetta.core.pack.task.operation.InitializeFromCommandline())
+    task_factory.push_back(pyrosetta.rosetta.core.pack.task.operation.IncludeCurrent())
+    task_factory.push_back(pyrosetta.rosetta.core.pack.task.operation.NoRepackDisulfides())
+    task_factory.push_back(pyrosetta.rosetta.core.pack.task.operation.RestrictToRepacking())
+    task_factory.push_back(pyrosetta.rosetta.core.pack.task.operation.OperateOnResidueSubset(pyrosetta.rosetta.core.pack.task.operation.RestrictToRepackingRLT(), nbr_selector, True))
     
-    rlt = pyrosetta.rosetta.core.pack.task.operation.PreventRepackingRLT()
+    # Repack the mutated residue and its neighbors
+    pack_rotamers_mover = PackRotamersMover()
+    pack_rotamers_mover.nloop(10)
+    pack_rotamers_mover.score_function(scorefxn)
+    pack_rotamers_mover.task_factory(task_factory)
+    pack_rotamers_mover.apply(pose_to_mutate)
     
-    repack_tf = pyrosetta.rosetta.core.pack.task.TaskFactory()
-    repack_tf.push_back(pyrosetta.rosetta.core.pack.task.operation.InitializeFromCommandline())
-    repack_tf.push_back(pyrosetta.rosetta.core.pack.task.operation.IncludeCurrent())
-    repack_tf.push_back(pyrosetta.rosetta.core.pack.task.operation.NoRepackDisulfides())
-    repack_tf.push_back(pyrosetta.rosetta.core.pack.task.operation.RestrictToRepacking())
-    repack_tf.push_back(pyrosetta.rosetta.core.pack.task.operation.OperateOnResidueSubset(rlt, nbr, True))
+    # Create a movemap to enable minimization of only the mutated residue and its neighbors
+    move_map = MoveMap()
+    move_map.set_bb(False)
+    move_map.set_chi(False)
+    move_map.set_jump(False)
+    for res in pyrosetta.rosetta.core.select.get_residues_from_subset(nbr_selector.apply(pose_to_mutate)):
+        move_map.set_bb(res, True)
+        move_map.set_chi(res, True)
+        move_map.set_jump(res, True)
     
-    #jump_num = mutant_pose.num_jump()
-    #jump_selector = pyrosetta.rosetta.core.select.jump_selector.JumpIndexSelector()
-    #jump_selector.jump(jump_num)
-    
-    mmf = pyrosetta.rosetta.core.select.movemap.MoveMapFactory()
-    mmf.add_chi_action(pyrosetta.rosetta.core.select.movemap.mm_enable, nbr)
-    mmf.add_bb_action(pyrosetta.rosetta.core.select.movemap.mm_enable, nbr)
-    #mmf.add_jump_action(pyrosetta.rosetta.core.select.movemap.mm_enable, nbr)
-    #mmf.add_jump_action(pyrosetta.rosetta.core.select.movemap.mm_enable, jump_selector)
-    
-    relax = pyrosetta.rosetta.protocols.relax.FastRelax(pack_scorefxn, standard_repeats = relax_cycles)
-    relax.constrain_relax_to_start_coords(True) 
-    relax.set_task_factory(repack_tf)
-    relax.set_movemap_factory(mmf)
-    relax.minimize_bond_angles(True)
-    relax.minimize_bond_lengths(True)
-    #relax.max_iter(300)
-    relax.apply(pose_to_mutate)
+    # Minimize only the mutated residue and its neighbors
+    min_mover = MinMover()
+    min_mover.cartesian(True)
+    min_mover.score_function(scorefxn)
+    min_mover.movemap(move_map)
+    min_mover.tolerance(0.00001)
+    min_mover.min_type('lbfgs_armijo_nonmonotone')
+
+    min_mover.apply(pose_to_mutate)
     
     return pose_to_mutate
 
