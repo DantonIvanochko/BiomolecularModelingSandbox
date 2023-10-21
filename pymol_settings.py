@@ -1,3 +1,5 @@
+from pymol import cmd
+
 print("applying general settings... ")
 cmd.bg_color("white")
 cmd.set('fog', '0')
