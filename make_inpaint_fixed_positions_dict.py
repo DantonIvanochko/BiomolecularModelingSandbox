@@ -11,7 +11,8 @@ import json
 def main(args):
 
     # get data from .trb file
-    trb_basename = args.trb_file.split(".")[0]
+
+    # trb_basename = args.trb_file.split(".")[0] # delete this line
     trb_data = np.load(args.trb_file, allow_pickle=True)
     unfixed_chain = list(set([x[0] for x in trb_data['con_hal_pdb_idx']]))
     print(unfixed_chain)
@@ -21,6 +22,7 @@ def main(args):
     print(unfixed_position_list)
 
     # get data from parsed (multiple) chains .jsonl file
+
     with open(args.parse_chains, 'r') as json_file:
         json_list = list(json_file)
     my_dict = {}
@@ -39,6 +41,7 @@ def main(args):
         my_dict[result['name']] = fixed_position_dict
     with open(args.output_path, 'w') as f:
         f.write(json.dumps(my_dict) + '\n')
+
 
 if __name__ == "__main__":
 
