@@ -87,9 +87,6 @@ def Cbeta_distance(input_pdb, res_range1, res_range2, fluctuation=7):
 
 
 
-
-
-
 def average_b(selection):
 	stored.tempfactor = 0
 	stored.atomnumber = 0
@@ -101,3 +98,40 @@ def average_b(selection):
 	averagetempfactor = stored.tempfactor / stored.atomnumber
 	print("average B of '%s': %s" % (selection, averagetempfactor))
 cmd.extend("average_b", average_b)
+
+
+
+def pLDDT(selection):
+	stored.atom_pLDDT = 0
+	stored.atom_number = 0
+	cmd.iterate(selection, "stored.atom_pLDDT = stored.atom_pLDDT + b")
+	cmd.iterate(selection, "stored.atom_number = stored.atom_number + 1")
+	average_pLDDT = stored.atom_pLDDT / stored.atom_number
+	print(f"pLDDT of {selection} : {average_pLDDT}")
+	return average_pLDDT
+cmd.extend("pLDDT", pLDDT)
+
+
+
+
+def RMSD(query_structure, reference_structure):
+        rmsd = cmd.align(f"{query_structure} and n. CA+C+CN", f"{reference_structure} and n. CA+C+CN", cycles=0)[0]
+        print(f"backbone RMSD of {query_structure} and {reference_structure} : {rmsd}")
+        return rmsd
+cmd.extend("RMSD", RMSD)
+
+
+
+
+def get_aa_seq(pymol_object): # only one chain at a time
+        fastastr = cmd.get_fastastr(pymol_object).splitlines()[1:]
+        aa_seq = ''.join(fastastr)
+        print(aa_seq)
+	return aa_seq
+cmd.extend("get_aa_seq", get_aa_seq)
+
+
+
+
+
+
