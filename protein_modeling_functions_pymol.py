@@ -142,12 +142,12 @@ def count_interchain_clashes(chain1, chain2, clash_cutoff=0.4):
         clash_count = 0
         for i in stored.list_sele1:
                 for j in stored.list_sele2:
-                        clashing_distance = i[8] + j[8] - 0.4 
+                        clashing_distance = i[8] + j[8] - float(clash_cutoff)
                         measured_distance = pymol.cmd.get_distance(f"(/{i[0]}/{i[1]}/{i[2]}/{i[4]}/{i[6]})",f"(/{j[0]}/{j[1]}/{j[2]}/{j[4]}/{j[6]})")
                         if measured_distance < clashing_distance:
                                 clash_count += 1
-        return clash_count
         print(clash_count)
+        return clash_count
 pymol.cmd.extend("count_interchain_clashes", count_interchain_clashes)
 
 
