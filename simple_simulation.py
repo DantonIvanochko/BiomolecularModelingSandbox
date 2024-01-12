@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 
 
 
-# testInput = '../AF2_MMseqs2_output_RH5potentepi/RH5potentepi_RFd_length_8_0_output_AF2/RH5potentepi_RFd_length_8_0_0.2_10_1.2059_relaxed_rank_001_alphafold2_ptm_model_2_seed_000.pdb'
+# testInput = '../test001.pdb'
 
 
 def main(args): 
