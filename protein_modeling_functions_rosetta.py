@@ -66,19 +66,28 @@ def add_glycan(input_pdb, residue_index, glycan_chain):
 
 
 
-def relax_structure(input_pose_to_relax, constrain_to_input=False, standard_repeats=5, cartesian=True):
+def relax_structure(input_pose_to_relax, constrain_to_input=False, cycles=5, cartesian=True):
 
-    print("prepare starting structure with FastRelax()")
+    print(f'preparing {input_pose_to_relax} structure with FastRelax()')
     
-    relax = FastRelax(standard_repeats=standard_repeats)
+    mmf = pyrosetta.rosetta.core.select.movemap.MoveMapFactory()
+    mmf.all_bb(setting=True)
+    mmf.all_chi(setting=True)
+    mmf.all_jumps(setting=True)    
+    
+    relax = FastRelax(standard_repeats=cycles)
     
     if cartesian == True:
+        mmf.set_cartesian(setting=True)
         scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
         relax.set_scorefxn(scorefxn)
+        relax.set_movemap_factory(mmf)
         relax.cartesian(True)
         relax.minimize_bond_angles(True)
         relax.minimize_bond_lengths(True)
     else:
+        mmf.set_cartesian(setting=False)
+        relax.set_movemap_factory(mmf)
         scorefxn = get_fa_scorefxn()
         relax.set_scorefxn(scorefxn)
     
