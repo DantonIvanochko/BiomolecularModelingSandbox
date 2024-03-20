@@ -2,7 +2,7 @@
 
 # pyrosetta
 from pyrosetta import * 
-pyrosetta.init('-include_sugars -write_pdb_link_records') # within parenthesis is required for working with glycans ('-include_sugars -write_pdb_link_records')
+pyrosetta.init('-include_sugars -write_pdb_link_records -ignore_zero_occupancy false') # within parenthesis is required for working with glycans ('-include_sugars -write_pdb_link_records')
 # pyrosetta - clean
 from pyrosetta.toolbox import cleanATOM
 # pyrosetta - add glycan
@@ -344,3 +344,87 @@ def simple_fold(input_pose):
     mc.recover_low(input_pose)
     
     return input_pose
+
+
+
+def fast_relax_subset(pose, residue_indices, constrain_to_input=False, cycles=5, cartesian=True):
+    """
+    Perform fast relaxation on a subset of residues in a PyRosetta pose.
+
+    Parameters:
+        pose (pyrosetta.Pose): The PyRosetta pose object.
+        residue_indices (list): List of residue indices to relax.
+
+    Returns:
+        pyrosetta.Pose: The relaxed pose.
+    """
+    pyrosetta.init()
+
+    # Create a MoveMap to control which residues are allowed to move
+    movemap = rosetta.core.kinematics.MoveMap()
+    
+    for i in range(1, pose.total_residue() + 1):
+        if i in residue_indices:
+            # Allow backbone and side-chain movement for the specified residue
+            movemap.set_bb(i, True)
+            movemap.set_chi(i, True)
+            movemap.set_jump(i, True)
+            movemap.set_nu(i, True) # this only applies to glycans
+            movemap.set_branches(i, True) # this only applies to glycans
+        else:
+            # Prevent movement for other residues
+            movemap.set_bb(i, False)
+            movemap.set_chi(i, False)
+            movemap.set_jump(i, False)
+            movemap.set_nu(i, False) # this only applies to glycans
+            movemap.set_branches(i, False) # this only applies to glycans
+
+
+    # Create a FastRelax object
+    relax = rosetta.protocols.relax.FastRelax(standard_repeats=cycles)
+
+    # Set FastRelax options
+    if cartesian == True:
+        mmf.set_cartesian(setting=True)
+        scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
+        relax.set_scorefxn(scorefxn)
+        relax.set_movemap_factory(mmf)
+        relax.cartesian(True)
+        relax.minimize_bond_angles(True)
+        relax.minimize_bond_lengths(True)
+    else:
+        mmf.set_cartesian(setting=False)
+        relax.set_movemap_factory(mmf)
+        scorefxn = get_fa_scorefxn()
+        relax.set_scorefxn(scorefxn)
+    
+    relax.constrain_relax_to_start_coords(constrain_to_input)
+    
+    # Apply MoveMap to FastRelax
+    relax.set_movemap(movemap)
+
+    # Perform relaxation
+    relax.apply(pose)
+
+    return pose
+
+
+
+def make_pdb2pose_list(pdb_chains, pdb_residue_indices): 
+    """
+    Convert PDB residue indices to corresponding PyRosetta residue indices.
+    
+    Parameters:
+        pdb_chains (list): A list of PDB chain identifiers.
+        pdb_residue_indices (list): A list of residue indices within the PDB chains.
+    
+    Returns:
+        list: A list of PyRosetta residue indices corresponding to the input PDB indices.
+    """
+    pyrosetta_residue_indices = []
+    for pdb_chain in pdb_chains: 
+        for pdb_residue_index in pdb_residue_indices:
+            pyrosetta_index = test_pose.pdb_info().pdb2pose(pdb_chain, pdb_residue_index)
+            print(f'{pdb_chain},{pdb_residue_index},{pyrosetta_index}')
+            pyrosetta_residue_indices.append(pyrosetta_index)
+    return pyrosetta_residue_indices
