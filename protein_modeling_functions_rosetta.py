@@ -410,11 +410,12 @@ def fast_relax_subset(pose, residue_indices, constrain_to_input=False, cycles=5,
 
 
 
-def make_pdb2pose_list(pdb_chains, pdb_residue_indices): 
+def make_pdb2pose_list(pose, pdb_chains, pdb_residue_indices): 
     """
     Convert PDB residue indices to corresponding PyRosetta residue indices.
     
     Parameters:
+        pose (pyrosetta.Pose): The PyRosetta pose object.
         pdb_chains (list): A list of PDB chain identifiers.
         pdb_residue_indices (list): A list of residue indices within the PDB chains.
     
