@@ -358,7 +358,6 @@ def fast_relax_subset(pose, residue_indices, constrain_to_input=False, cycles=5,
     Returns:
         pyrosetta.Pose: The relaxed pose.
     """
-    pyrosetta.init()
 
     # Create a MoveMap to control which residues are allowed to move
     movemap = rosetta.core.kinematics.MoveMap()
