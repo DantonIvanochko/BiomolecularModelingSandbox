@@ -426,6 +426,6 @@ def make_pdb2pose_list(pose, pdb_chains, pdb_residue_indices):
     for pdb_chain in pdb_chains: 
         for pdb_residue_index in pdb_residue_indices:
             pyrosetta_index = pose.pdb_info().pdb2pose(pdb_chain, pdb_residue_index)
-            print(f'{pdb_chain},{pdb_residue_index},{pyrosetta_index}')
+            #print(f'{pdb_chain},{pdb_residue_index},{pyrosetta_index}')
             pyrosetta_residue_indices.append(pyrosetta_index)
     return pyrosetta_residue_indices
