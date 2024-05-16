@@ -168,66 +168,7 @@ def build_disulfide(input_pose_for_disulfide, ds_res1, ds_res2, cycles=1000, dis
     working_pose = reference_pose.clone()
 
     print("the STARTING reference difference is " + str(delta_disulfide_SG_distance(disulfide_SG_distance(reference_pose, ds_res1, ds_res2), 2.04)))
-def fast_relax_subset(pose, residue_indices, constrain_to_input=False, cycles=5, cartesian=True):
-    """
-    Perform fast relaxation on a subset of residues in a PyRosetta pose.
 
-    Parameters:
-        pose (pyrosetta.Pose): The PyRosetta pose object.
-        residue_indices (list): List of residue indices to relax.
-
-    Returns:
-        pyrosetta.Pose: The relaxed pose.
-    """
-
-    # Create a MoveMap to control which residues are allowed to move
-    movemap = rosetta.core.kinematics.MoveMap()
-    mmf = pyrosetta.rosetta.core.select.movemap.MoveMapFactory()
-    
-    for i in range(1, pose.total_residue() + 1):
-        if i in residue_indices:
-            # Allow backbone and side-chain movement for the specified residue
-            movemap.set_bb(i, True)
-            movemap.set_chi(i, True)
-            movemap.set_jump(i, True)
-            movemap.set_nu(i, True) # this only applies to glycans
-            movemap.set_branches(i, True) # this only applies to glycans
-        else:
-            # Prevent movement for other residues
-            movemap.set_bb(i, False)
-            movemap.set_chi(i, False)
-            movemap.set_jump(i, False)
-            movemap.set_nu(i, False) # this only applies to glycans
-            movemap.set_branches(i, False) # this only applies to glycans
-
-
-    # Create a FastRelax object
-    relax = rosetta.protocols.relax.FastRelax(standard_repeats=cycles)
-
-    # Set FastRelax options
-    if cartesian == True:
-        mmf.set_cartesian(setting=True)
-        scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
-        relax.set_scorefxn(scorefxn)
-        relax.set_movemap_factory(mmf)
-        relax.cartesian(True)
-        relax.minimize_bond_angles(True)
-        relax.minimize_bond_lengths(True)
-    else:
-        mmf.set_cartesian(setting=False)
-        relax.set_movemap_factory(mmf)
-        scorefxn = get_fa_scorefxn()
-        relax.set_scorefxn(scorefxn)
-    
-    relax.constrain_relax_to_start_coords(constrain_to_input)
-    
-    # Apply MoveMap to FastRelax
-    relax.set_movemap(movemap)
-
-    # Perform relaxation
-    relax.apply(pose)
-
-    return pose
 
     for n in range(0,cycles):
 
@@ -472,7 +413,6 @@ def fast_relax_subset(pose, residue_indices, constrain_to_input=False, cycles=5,
     relax.apply(pose)
 
     return pose
-
 
 
 
