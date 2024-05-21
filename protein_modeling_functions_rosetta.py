@@ -440,3 +440,61 @@ def make_pdb2pose_list(pose, pdb_chains, pdb_residue_indices):
             #print(f'{pdb_chain},{pdb_residue_index},{pyrosetta_index}')
             pyrosetta_residue_indices.append(pyrosetta_index)
     return pyrosetta_residue_indices
+
+
+
+def count_clashes(pose, selection1, selection2=None, overlap=0.4):
+    """
+    Count the number of clashes in a given pose
+    [1] either within a selection 
+    [2] or between two selections of residues,
+    based on a 0.4 Å overlap of van der Waals radii.
+    
+    Args:
+        pose (pyrosetta.rosetta.core.pose.Pose): The pose object containing the protein structure.
+        selection1 (list): List of pyrosetta residue indices.
+        selection2 (list; OPTIONAL): List of pyrosetta residue indices for the second selection.
+        overlap (float): The overlap distance for bad clashes (default is 0.4 Å).
+        
+    Returns:
+        int: The number of (bad) clashes.
+    """
+    
+    vdw_radii = {
+    "H": 1.2,
+    "C": 1.7,
+    "N": 1.55,
+    "O": 1.52,
+    "S": 1.8,
+    # Add more elements as needed
+    }
+    
+    def count_atom_clashes(residue1, residue2):
+        clashes = 0
+        for atom1 in range(1, residue1.natoms() + 1):
+            for atom2 in range(1, residue2.natoms() + 1):
+                atom1_xyz = residue1.xyz(atom1)
+                atom2_xyz = residue2.xyz(atom2)
+                element1 = residue1.atom_type(atom1).element()
+                element2 = residue2.atom_type(atom2).element()
+                vdw_radius1 = vdw_radii.get(element1, 1.7) # Default to 1.7 Å (C) if element not found
+                vdw_radius2 = vdw_radii.get(element2, 1.7) # Default to 1.7 Å (C) if element not found
+                distance = (atom1_xyz - atom2_xyz).norm()
+                clash_threshold = vdw_radius1 + vdw_radius2 - overlap
+                if distance < clash_threshold:
+                    clashes += 1
+        return clashes
+
+    bad_clashes = 0
+    if selection2 is None:
+        for i, res1 in enumerate(selection1):
+            for res2 in selection1[i + 1:]:
+                bad_clashes += count_atom_clashes(pose.residue(res1), pose.residue(res2))
+    else:
+        for res1 in selection1:
+            for res2 in selection2:
+                if res1 != res2:
+                    bad_clashes += count_atom_clashes(pose.residue(res1), pose.residue(res2))
+
+    return bad_clashes
+
