@@ -479,7 +479,7 @@ def count_clashes(pose, selection1, selection2=None, overlap=0.4):
                 element2 = residue2.atom_type(atom2).element()
                 vdw_radius1 = vdw_radii.get(element1, 1.7) # Default to 1.7 Å (C) if element not found
                 vdw_radius2 = vdw_radii.get(element2, 1.7) # Default to 1.7 Å (C) if element not found
-                distance = (atom1_xyz - atom2_xyz).norm()
+                distance = (atom1_xyz - atom2_xyz).norm() # same as sqrt((ax-bx)^2 + (ay-by)^2 + (az-bz)^2)
                 clash_threshold = vdw_radius1 + vdw_radius2 - overlap
                 if distance < clash_threshold:
                     clashes += 1
