@@ -498,3 +498,100 @@ def count_clashes(pose, selection1, selection2=None, overlap=0.4):
 
     return bad_clashes
 
+
+
+
+
+
+
+
+
+
+
+
+
+### simple threading of a sequences into a pose and pack mutant rotamers
+def thread_and_pack(pose, sequence):
+    """
+    Thread a sequence onto a pose and pack rotamers of mutations.
+    """
+    three_letter = {'V': 'VAL', 'I': 'ILE', 'L': 'LEU', 'E': 'GLU', 'Q': 'GLN',
+                    'D': 'ASP', 'N': 'ASN', 'H': 'HIS', 'W': 'TRP', 'F': 'PHE',
+                    'R': 'ARG', 'K': 'LYS', 'S': 'SER', 'T': 'THR', 'M': 'MET',
+                    'G': 'GLY', 'P': 'PRO', 'C': 'CYS', 'Y': 'TYR', 'A': 'ALA'}
+
+    if len(sequence) != pose.total_residue():
+        raise ValueError("Sequence length must match the pose residue count")
+
+    mutator = pyrosetta.rosetta.protocols.simple_moves.MutateResidue()
+    mutated_residues = []
+
+    for i in range(1, pose.total_residue() + 1):  # PyRosetta is 1-indexed
+        current_res = pose.residue(i).name1()
+        target_res = sequence[i - 1]
+        target_res_3 = three_letter[target_res]
+
+        if current_res != target_res:
+            print(f"Mutating residue {i}: {current_res} -> {target_res}")
+            mutator.set_res_name(target_res_3)
+            mutator.set_target(i)
+            mutator.apply(pose)
+            mutated_residues.append(i)
+
+    # Apply packer to all mutated residues at once
+    if mutated_residues:
+        
+        # set up task factory for only mutated residues
+        tf = pyrosetta.rosetta.core.pack.task.TaskFactory()
+        tf.push_back(pyrosetta.rosetta.core.pack.task.operation.InitializeFromCommandline())
+        tf.push_back(pyrosetta.rosetta.core.pack.task.operation.IncludeCurrent())
+        tf.push_back(pyrosetta.rosetta.core.pack.task.operation.NoRepackDisulfides())
+
+        #prevent all residues except selected from design and repacking
+        nonmutated_residues = [x for x in range(1, pose.total_residue() + 1) if x not in mutated_residues]
+        selected_NO_packing = pyrosetta.rosetta.core.select.residue_selector.ResidueIndexSelector()
+        for nonmut in nonmutated_residues:
+            selected_NO_packing.append_index(nonmut)
+        disallow = pyrosetta.rosetta.core.pack.task.operation.PreventRepackingRLT()
+        prevent_subset_repacking = pyrosetta.rosetta.core.pack.task.operation.OperateOnResidueSubset(disallow, selected_NO_packing, False )
+        tf.push_back(prevent_subset_repacking)
+        
+        # allow selected residues only repacking (=switch off design)
+        selected_packing = pyrosetta.rosetta.core.select.residue_selector.ResidueIndexSelector()
+        for mut in mutated_residues:
+            selected_packing.append_index(mut)
+        print(selected_packing)
+        allow = pyrosetta.rosetta.core.pack.task.operation.RestrictToRepackingRLT()
+        restrict_subset_repacking = pyrosetta.rosetta.core.pack.task.operation.OperateOnResidueSubset(allow , selected_packing, False )
+        tf.push_back(restrict_subset_repacking)
+
+        #print(f"task factory : {tf.create_task_and_apply_taskoperations(pose)}")
+
+        #MinPacker = pyrosetta.rosetta.protocols.minimization_packing.MinPackMover()
+        Packer = pyrosetta.rosetta.protocols.minimization_packing.PackRotamersMover()
+        scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
+        Packer.task_factory(tf)        
+        Packer.score_function(scorefxn)
+        initial_score = scorefxn(pose)        
+        Packer.apply(pose)
+        final_score = scorefxn(pose)
+
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print(f" starting score : {initial_score} REU")
+        print(f"    final score : {final_score} REU")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
