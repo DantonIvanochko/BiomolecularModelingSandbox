@@ -589,6 +589,237 @@ def thread_and_pack(pose, sequence):
 
 
 
+def fast_relax_ED(pose, map_file, weight):
+
+    """
+    map_file must be .ccp4 or .mrc
+    weight should be large (>30) for higher res
+    """
+    # score function
+    scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
+
+    # set electron density info
+    ED = pyrosetta.rosetta.core.scoring.electron_density.getDensityMap(map_file)
+    initial_fit = ED.matchPose(pose)
+
+    sdsm = pyrosetta.rosetta.protocols.electron_density.SetupForDensityScoringMover()
+    sdsm.apply(pose)
+
+    elec_dens_fast = pyrosetta.rosetta.core.scoring.ScoreType.elec_dens_fast
+    scorefxn.set_weight(elec_dens_fast, weight)
+    # Create a MoveMap to control which residues are allowed to move
+    movemap = rosetta.core.kinematics.MoveMap()
+
+    for i in range(1, pose.total_residue() + 1):
+        # allow backbone + side-chain movement
+        movemap.set_bb(i, True)
+        movemap.set_chi(i, True)
+        movemap.set_jump(i, True)
+
+    # Create a FastRelax object
+    relax = rosetta.protocols.relax.FastRelax(standard_repeats=1)
+    relax.set_scorefxn(scorefxn)
+    relax.set_movemap(movemap)
+    relax.cartesian(True)
+    relax.minimize_bond_angles(True)
+    relax.minimize_bond_lengths(True)
+
+    # Perform relaxation
+    relax.apply(pose)
+    final_fit = ED.matchPose(pose)
+
+    # RESULTS
+    print("\n\nRESULTS -- FASTRELAX IN ELECTRON DENSITY")
+    print(f"map_file : {map_file} weight : {weight}")
+    print(f"initial_fit : {initial_fit}")
+    print(f"final_fit   : {final_fit}")
+    print("RESULTS END\n\n")
+
+    return pose
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def min_mover_ED_2subsets(pose, map_file, weight, residue_indices_BB_SC, residue_indices_SC):
+
+    """
+    map_file must be .ccp4 or .mrc
+    weight should be large (>30) for higher res
+    residue_indices_BB_SC is for backbone and sidechain movements
+    residue_indices_BB_SC is for only sidechain movements
+
+    """
+
+    # set electron density info
+    ED = pyrosetta.rosetta.core.scoring.electron_density.getDensityMap(map_file)
+    initial_fit = ED.matchPose(pose)
+
+    sdsm = pyrosetta.rosetta.protocols.electron_density.SetupForDensityScoringMover()
+    sdsm.apply(pose)
+
+    elec_dens_fast = pyrosetta.rosetta.core.scoring.ScoreType.elec_dens_fast
+    scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
+    scorefxn.set_weight(elec_dens_fast, weight)
+
+
+    # Create a MoveMap to control which residues are allowed to move
+    movemap = rosetta.core.kinematics.MoveMap()
+    for i in range(1, pose.total_residue() + 1):
+        if i in residue_indices_BB_SC:
+            # allow backbone + side-chain movement
+            movemap.set_bb(i, True)
+            movemap.set_chi(i, True)
+            movemap.set_jump(i, True)
+        elif i in residue_indices_SC:
+            # allow side-chain movement
+            movemap.set_bb(i, False)
+            movemap.set_chi(i, True)
+            movemap.set_jump(i, True)
+        else:
+            # no movement for other residues
+            movemap.set_bb(i, False)
+            movemap.set_chi(i, False)
+            movemap.set_jump(i, False)
+
+    # Create a Min mover object
+    minmover = pyrosetta.rosetta.protocols.minimization_packing.MinMover()
+    minmover.cartesian(True)
+    minmover.score_function(scorefxn)
+    minmover.set_movemap(movemap)
+
+    # Perform relaxation
+    minmover.apply(pose)
+    final_fit = ED.matchPose(pose)
+
+    # RESULTS
+    print("\n\nRESULTS -- MINMOVER IN ELECTRON DENSITY")
+    print(f"initial_fit : {initial_fit}")
+    print(f"final_fit   : {final_fit}")
+
+    return pose
+
+
+
+
+
+
+
+def fast_relax_ED_2subsets(pose, map_file, weight, residue_indices_BB_SC, residue_indices_SC):
+
+    """
+    map_file must be .ccp4 or .mrc
+    weight should be large (>30) for higher res
+    residue_indices_BB_SC is for backbone and sidechain movements
+    residue_indices_BB_SC is for only sidechain movements
+    """
+
+    # score function
+    scorefxn = pyrosetta.create_score_function("ref2015_cart.wts")
+
+    # set electron density info
+    ED = pyrosetta.rosetta.core.scoring.electron_density.getDensityMap(map_file)
+    initial_fit = ED.matchPose(pose)
+
+    sdsm = pyrosetta.rosetta.protocols.electron_density.SetupForDensityScoringMover()
+    sdsm.apply(pose)
+
+    elec_dens_fast = pyrosetta.rosetta.core.scoring.ScoreType.elec_dens_fast
+    scorefxn.set_weight(elec_dens_fast, weight)
+
+    # Create a MoveMap to control which residues are allowed to move
+    movemap = rosetta.core.kinematics.MoveMap()
+
+    for i in range(1, pose.total_residue() + 1):
+        if i in residue_indices_BB_SC:
+            # allow backbone + side-chain movement
+            movemap.set_bb(i, True)
+            movemap.set_chi(i, True)
+            movemap.set_jump(i, True)
+        elif i in residue_indices_SC:
+            # allow side-chain movement
+            movemap.set_bb(i, False)
+            movemap.set_chi(i, True)
+            movemap.set_jump(i, True)
+        else:
+            # no movement for other residues
+            movemap.set_bb(i, False)
+            movemap.set_chi(i, False)
+            movemap.set_jump(i, False)
+
+    # Create a FastRelax object
+    relax = rosetta.protocols.relax.FastRelax(standard_repeats=1)
+    relax.set_scorefxn(scorefxn)
+    relax.set_movemap(movemap)
+    relax.cartesian(True)
+    relax.minimize_bond_angles(True)
+    relax.minimize_bond_lengths(True)
+
+    # Perform relaxation
+    relax.apply(pose)
+    final_fit = ED.matchPose(pose)
+
+    # RESULTS
+    print("\n\nRESULTS -- FASTRELAX IN ELECTRON DENSITY")
+    print(f"initial_fit : {initial_fit}")
+    print(f"final_fit   : {final_fit}")
+    print("RESULTS END\n\n")
+
+    return pose
+
+
+
+
+
+# get list of lists indicating ss in pose
+def get_secondary_structure_regions(input_pose):
+    # use dssp to assign ss to pose
+    DSSP = pyrosetta.rosetta.protocols.moves.DsspMover()
+    DSSP.apply(input_pose)
+
+    # set ss string
+    ss_string = input_pose.secstruct()
+
+    print(ss_string)
+
+    # Lists to hold residues for each secondary structure element
+    ss_helices, ss_sheets, ss_loops, ss_unassigned = [], [], [], []
+
+    # Loop through DSSP assignments and store residue ranges
+    for i, ss in enumerate(ss_string):
+        if ss == "H":
+            ss_helices.append(i + 1)  # rosetta is base-1 indexed
+        elif ss == "E":
+            ss_sheets.append(i + 1)
+        elif ss == "L":
+            ss_loops.append(i + 1)
+        else:
+            ss_unassigned.append(i + 1)
+
+    return ss_helices, ss_sheets, ss_loops, ss_unassigned
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
