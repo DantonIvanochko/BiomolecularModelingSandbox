@@ -443,61 +443,83 @@ def make_pdb2pose_list(pose, pdb_chains, pdb_residue_indices):
 
 
 
-def count_clashes(pose, selection1, selection2=None, overlap=0.4):
+def count_clashes(pose, selection1, selection2=None, overlap=0.4, neighbor_cutoff=5.0):
     """
-    Count the number of clashes in a given pose
-    [1] either within a selection 
-    [2] or between two selections of residues,
-    based on a 0.4 Å overlap of van der Waals radii.
-    
-    Args:
-        pose (pyrosetta.rosetta.core.pose.Pose): The pose object containing the protein structure.
-        selection1 (list): List of pyrosetta residue indices.
-        selection2 (list; OPTIONAL): List of pyrosetta residue indices for the second selection.
-        overlap (float): The overlap distance for bad clashes (default is 0.4 Å).
-        
-    Returns:
-        int: The number of (bad) clashes.
+    Count atomic clashes in a pose.
+    selection1 --Residue indices to check.
+    selection2 (optional) -- list of residue indices to check against.
+    overlap -- Overlap threshold to define a clash (default 0.4 Å).
+    neighbor_cutoff -- CA distance cutoff for residue neighbor filtering.
     """
-    
     vdw_radii = {
-    "H": 1.2,
-    "C": 1.7,
-    "N": 1.55,
-    "O": 1.52,
-    "S": 1.8,
-    # Add more elements as needed
+        "H": 1.2,
+        "C": 1.7,
+        "N": 1.55,
+        "O": 1.52,
+        "S": 1.8
     }
-    
-    def count_atom_clashes(residue1, residue2):
+
+    def count_atom_clashes(res1, res2):
+        """Count atom clashes between two residues, excluding bonded pairs"""
         clashes = 0
-        for atom1 in range(1, residue1.natoms() + 1):
-            for atom2 in range(1, residue2.natoms() + 1):
-                atom1_xyz = residue1.xyz(atom1)
-                atom2_xyz = residue2.xyz(atom2)
-                element1 = residue1.atom_type(atom1).element()
-                element2 = residue2.atom_type(atom2).element()
-                vdw_radius1 = vdw_radii.get(element1, 1.7) # Default to 1.7 Å (C) if element not found
-                vdw_radius2 = vdw_radii.get(element2, 1.7) # Default to 1.7 Å (C) if element not found
-                distance = (atom1_xyz - atom2_xyz).norm() # same as sqrt((ax-bx)^2 + (ay-by)^2 + (az-bz)^2)
-                clash_threshold = vdw_radius1 + vdw_radius2 - overlap
-                if distance < clash_threshold:
+        same_res = res1.seqpos() == res2.seqpos()
+        for i in range(1, res1.natoms() + 1):
+            for j in range(1, res2.natoms() + 1):
+                if same_res and res1.bonded(i, j):
+                    continue
+                if not same_res and abs(res1.seqpos() - res2.seqpos()) == 1:
+                    continue  # Skip peptide neighbors
+
+                xyz1 = res1.xyz(i)
+                xyz2 = res2.xyz(j)
+                dist = (xyz1 - xyz2).norm()
+
+                e1 = res1.atom_type(i).element()
+                e2 = res2.atom_type(j).element()
+                r1 = vdw_radii.get(e1, 1.7)
+                r2 = vdw_radii.get(e2, 1.7)
+                threshold = r1 + r2 - overlap
+
+                if dist < threshold:
                     clashes += 1
         return clashes
 
+    def build_neighbor_graph(residues_a, residues_b):
+        """Build neighbor pairs within CA-CA cutoff distane"""
+        neighbors = {}
+        for i in residues_a:
+            neighbors[i] = []
+            xyz_i = pose.residue(i).xyz("CA")
+            for j in residues_b:
+                if i == j:
+                    continue
+                xyz_j = pose.residue(j).xyz("CA")
+                if (xyz_i - xyz_j).norm() <= neighbor_cutoff:
+                    neighbors[i].append(j)
+        return neighbors
+
     bad_clashes = 0
+
     if selection2 is None:
-        for i, res1 in enumerate(selection1):
-            for res2 in selection1[i + 1:]:
-                bad_clashes += count_atom_clashes(pose.residue(res1), pose.residue(res2))
-    else:
+        # Intra-selection
+        neighbor_graph = build_neighbor_graph(selection1, selection1)
+        visited = set()
+
         for res1 in selection1:
-            for res2 in selection2:
-                if res1 != res2:
-                    bad_clashes += count_atom_clashes(pose.residue(res1), pose.residue(res2))
+            visited.add(res1)
+            for res2 in neighbor_graph[res1]:
+                if res2 in visited:
+                    continue  # Avoid double-counting
+                bad_clashes += count_atom_clashes(pose.residue(res1), pose.residue(res2))
+
+    else:
+        # Inter-selection
+        neighbor_graph = build_neighbor_graph(selection1, selection2)
+        for res1 in selection1:
+            for res2 in neighbor_graph[res1]:
+                bad_clashes += count_atom_clashes(pose.residue(res1), pose.residue(res2))
 
     return bad_clashes
-
 
 
 
