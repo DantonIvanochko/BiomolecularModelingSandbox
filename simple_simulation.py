@@ -30,7 +30,6 @@ def main(args):
         modeller = app.Modeller(pdb.topology, pdb.positions)
         modeller.addHydrogens(forcefield, pH=7.4)
         modeller.addSolvent(forcefield, padding=1.0*unit.nanometers, ionicStrength=0.15*unit.molar)
-        modeller.addExtraParticles(forcefield)
         app.PDBFile.writeFile(modeller.topology, modeller.positions, open(f'{inputFileBasename}-coordinates.pdb', 'w')) 
 
         # prepare system and integrator
